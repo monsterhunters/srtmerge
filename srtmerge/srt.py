@@ -21,7 +21,9 @@ __author__ = 'wistful'
 import codecs
 import re
 import sys
-from collections import namedtuple, Sequence, Iterable
+from collections.abc import Sequence, Iterable
+from collections import namedtuple
+
 
 if sys.version_info[0] > 2:
     unicode = str
