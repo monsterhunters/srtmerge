@@ -28,7 +28,8 @@ from collections import namedtuple
 if sys.version_info[0] > 2:
     unicode = str
 
-from chardet.universaldetector import UniversalDetector
+#from chardet.universaldetector import UniversalDetector
+from chardet import UniversalDetector
 
 SubRecord = namedtuple('SubRecord', ['start', 'finish', 'text'])
 DEFAULT_ENCODING = 'utf-8'
