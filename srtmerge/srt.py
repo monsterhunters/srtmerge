@@ -1,20 +1,20 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-#    Copyleft 2014 wistful <wst public mail at gmail com>
+#   Copyleft 2014 wistful <wst public mail at gmail com>
 #
-#    This is a free software; you can redistribute it and/or
-#    modify it under the terms of the GNU Lesser General Public
-#    License as published by the Free Software Foundation; either
-#    version 2.1 of the License, or (at your option) any later version.
+#   This is a free software; you can redistribute it and/or
+#   modify it under the terms of the GNU Lesser General Public
+#   License as published by the Free Software Foundation; either
+#   version 2.1 of the License, or (at your option) any later version.
 #
-#    This library is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-#    Lesser General Public License for more details.
+#   This library is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#   Lesser General Public License for more details.
 #
-#    You should have received a copy of the GNU Lesser General Public
-#    License along with this library; if not, write to the Free Software
-#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#   You should have received a copy of the GNU Lesser General Public
+#   License along with this library; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 __author__ = 'wistful'
 
@@ -58,42 +58,46 @@ class Subtitles(Sequence, Iterable):
         return len(self.__records)
 
     def __add__(self, other):
-            def repack_record(rec, index):
-                return SubRecord(rec.start, rec.finish, (index, rec.text))
-    
-            subs = []
-            new_obj = Subtitles()  # new Subtitles instance
-    
-            # 1. join records
-            for index, instance in enumerate((self, other)):
-                subs.extend([repack_record(rec, index) for rec in instance])
-    
-            # 2. sort records by start time
-            subs.sort(key=lambda item: item.start)
-    
-            # 3. merge records
-            index_start = 0
-            while index_start < len(subs):
-                start, finish, rec_text = subs[index_start]
-                text = [rec_text]
-                index_end = index_start + 1
-                while index_end < len(subs) and subs[index_end].start < finish:
-                    rec = subs[index_end]
-                    text.append(rec.text)
-                    finish = max(finish, start + (rec.finish - rec.start) * 2 / 3)
-                    index_end += 1
-    
-                # FIXED LINE: Filter out blank lines (e.g., '\n') before joining
-                text = "".join([item[1] for item in sorted(text) if item[1].strip() != ""])
-                new_obj.append(SubRecord(start, finish, text))
-    
-                if index_end < len(subs):
-                    index_start = index_end
-                    continue
-                else:
-                    break
-    
-            return new_obj
+        def repack_record(rec, index):
+            return SubRecord(rec.start, rec.finish, (index, rec.text))
+
+        subs = []
+        new_obj = Subtitles()  # new Subtitles instance
+
+        # 1. join records
+        for index, instance in enumerate((self, other)):
+            subs.extend([repack_record(rec, index) for rec in instance])
+
+        # 2. sort records by start time
+        subs.sort(key=lambda item: item.start)
+
+        # 3. merge records
+        index_start = 0
+        while index_start < len(subs):
+            start, finish, rec_text = subs[index_start]
+            text = [rec_text]
+            index_end = index_start + 1
+            while index_end < len(subs) and subs[index_end].start < finish:
+                rec = subs[index_end]
+                text.append(rec.text)
+                finish = max(finish, start + (rec.finish - rec.start) * 2 / 3)
+                index_end += 1
+
+            # FIXED LINE: Filter out blank lines (e.g., '\n') before joining
+            # This logic checks if the stripped text is empty or not.
+            filtered_text = [item[1] for item in sorted(text) if item[1].strip() != ""]
+            text_to_join = "".join(filtered_text)
+            
+            new_obj.append(SubRecord(start, finish, text_to_join))
+
+            if index_end < len(subs):
+                index_start = index_end
+                continue
+            else:
+                break
+
+        return new_obj
+
 
 class SrtFormatError(Exception):
 
@@ -225,11 +229,14 @@ def subwriter(filepath, subtitles, offset=0, encoding=DEFAULT_ENCODING):
     line = unicode("{index}\n{time}\n{text}\n")
     with codecs.open(filepath, 'w', encoding=encoding) as fd:
         for index, rec in enumerate(subtitles, 1):
-            text = line.format(index=unicode(index),
-                               time=parse_ms(rec.start + offset,
-                                             rec.finish + offset),
-                               text=rec.text)
-            fd.write(text)
+            # Only write the record if the text is not empty
+            # This prevents writing blocks that *only* contained a blank line
+            if rec.text.strip():
+                text = line.format(index=unicode(index),
+                                  time=parse_ms(rec.start + offset,
+                                                rec.finish + offset),
+                                  text=rec.text)
+                fd.write(text)
 
 if __name__ == '__main__':
     import doctest
