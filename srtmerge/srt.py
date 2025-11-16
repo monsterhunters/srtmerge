@@ -83,12 +83,32 @@ class Subtitles(Sequence, Iterable):
                 finish = max(finish, start + (rec.finish - rec.start) * 2 / 3)
                 index_end += 1
 
-            # FIXED LINE: Filter out blank lines (e.g., '\n') before joining
-            # This logic checks if the stripped text is empty or not.
-            filtered_text = [item[1] for item in sorted(text) if item[1].strip() != ""]
-            text_to_join = "".join(filtered_text)
+            # --- NEW FIXED LOGIC ---
+            # Get all text items from the overlapping blocks
+            all_text_items = [item[1] for item in sorted(text)]
             
-            new_obj.append(SubRecord(start, finish, text_to_join))
+            # Find all items that are NOT blank
+            non_blank_items = [t for t in all_text_items if t.strip() != ""]
+            
+            text_to_join = ""
+            if len(non_blank_items) > 0:
+                # Case 1: We have text. Join *only* the non-blank items.
+                # This fixes the "blank upper line" bug.
+                text_to_join = "".join(non_blank_items)
+            elif len(all_text_items) > 0:
+                # Case 2: We have no text (all items were blank).
+                # Preserve a single blank line.
+                # This fixes the "deleting blank lines" bug.
+                text_to_join = "\n"
+            
+            # Only append if the result is not an empty string
+            # (e.g. from a text-less source file)
+            if text_to_join or (start and finish):
+                # A "truly" blank line will be "\n", so text_to_join is True.
+                # An "empty" block from merging will be "", so it's False.
+                # We need to ensure we don't drop legitimate blanks.
+                # The subreader always adds '\n', so even a blank sub is not empty.
+                new_obj.append(SubRecord(start, finish, text_to_join))
 
             if index_end < len(subs):
                 index_start = index_end
@@ -210,6 +230,9 @@ def subreader(file_path, encoding=DEFAULT_ENCODING):
                 text.append(line)
 
     # don't forget about last record
+    # If the file ends with a blank sub, text will be []
+    # {0}\n.format('\n'.join([])) becomes "\n"
+    # This is correct.
     if start and finish:
         subtitles.append(
             SubRecord(start, finish,
@@ -228,15 +251,14 @@ def subwriter(filepath, subtitles, offset=0, encoding=DEFAULT_ENCODING):
     """
     line = unicode("{index}\n{time}\n{text}\n")
     with codecs.open(filepath, 'w', encoding=encoding) as fd:
+        # REVERTED: Removed the "if rec.text.strip()" check.
+        # We trust the __add__ method to have prepared the text correctly.
         for index, rec in enumerate(subtitles, 1):
-            # Only write the record if the text is not empty
-            # This prevents writing blocks that *only* contained a blank line
-            if rec.text.strip():
-                text = line.format(index=unicode(index),
+            text = line.format(index=unicode(index),
                                   time=parse_ms(rec.start + offset,
                                                 rec.finish + offset),
                                   text=rec.text)
-                fd.write(text)
+            fd.write(text)
 
 if __name__ == '__main__':
     import doctest
