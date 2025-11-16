@@ -58,42 +58,42 @@ class Subtitles(Sequence, Iterable):
         return len(self.__records)
 
     def __add__(self, other):
-        def repack_record(rec, index):
-            return SubRecord(rec.start, rec.finish, (index, rec.text))
-
-        subs = []
-        new_obj = Subtitles()  # new Subtitles instance
-
-        # 1. join records
-        for index, instance in enumerate((self, other)):
-            subs.extend([repack_record(rec, index) for rec in instance])
-
-        # 2. sort records by start time
-        subs.sort(key=lambda item: item.start)
-
-        # 3. merge records
-        index_start = 0
-        while index_start < len(subs):
-            start, finish, rec_text = subs[index_start]
-            text = [rec_text]
-            index_end = index_start + 1
-            while index_end < len(subs) and subs[index_end].start < finish:
-                rec = subs[index_end]
-                text.append(rec.text)
-                finish = max(finish, start + (rec.finish - rec.start) * 2 / 3)
-                index_end += 1
-
-            text = "".join(map(lambda item: item[1], sorted(text)))
-            new_obj.append(SubRecord(start, finish, text))
-
-            if index_end < len(subs):
-                index_start = index_end
-                continue
-            else:
-                break
-
-        return new_obj
-
+            def repack_record(rec, index):
+                return SubRecord(rec.start, rec.finish, (index, rec.text))
+    
+            subs = []
+            new_obj = Subtitles()  # new Subtitles instance
+    
+            # 1. join records
+            for index, instance in enumerate((self, other)):
+                subs.extend([repack_record(rec, index) for rec in instance])
+    
+            # 2. sort records by start time
+            subs.sort(key=lambda item: item.start)
+    
+            # 3. merge records
+            index_start = 0
+            while index_start < len(subs):
+                start, finish, rec_text = subs[index_start]
+                text = [rec_text]
+                index_end = index_start + 1
+                while index_end < len(subs) and subs[index_end].start < finish:
+                    rec = subs[index_end]
+                    text.append(rec.text)
+                    finish = max(finish, start + (rec.finish - rec.start) * 2 / 3)
+                    index_end += 1
+    
+                # FIXED LINE: Filter out blank lines (e.g., '\n') before joining
+                text = "".join([item[1] for item in sorted(text) if item[1].strip() != ""])
+                new_obj.append(SubRecord(start, finish, text))
+    
+                if index_end < len(subs):
+                    index_start = index_end
+                    continue
+                else:
+                    break
+    
+            return new_obj
 
 class SrtFormatError(Exception):
 
